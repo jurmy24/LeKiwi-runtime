@@ -31,7 +31,13 @@ conda activate lerobot
 > First call this from the Pi host
 
 ```bash
+# Without cameras
 python -m lerobot.robots.lekiwi.lekiwi_host --robot.id=biden_kiwi --robot.cameras="{}"
+
+# With cameras
+python -m lerobot.robots.lekiwi.lekiwi_host \
+    --robot.id=biden_kiwi \
+    --robot.cameras="{front: {type: opencv, index_or_path: 0, width: 640, height: 480, fps: 30}, "wrist": {type: opencv, index_or_path: 2, width: 640, height: 480, fps: 30}}" \
 ```
 
 > And this from the computer client
@@ -39,3 +45,6 @@ python -m lerobot.robots.lekiwi.lekiwi_host --robot.id=biden_kiwi --robot.camera
 ```bash
 python examples/lekiwi/teleoperate.py
 ```
+
+My port
+"/dev/tty.usbmodem5AB90687441"
