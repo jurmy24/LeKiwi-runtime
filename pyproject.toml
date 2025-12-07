@@ -15,6 +15,9 @@ dependencies = [
     "pyzmq>=27.1.0",
 ]
 
+[tool.uv]
+package = true
+
 [project.scripts]
 lekiwi-host = "lekiwi.host:main"
 
