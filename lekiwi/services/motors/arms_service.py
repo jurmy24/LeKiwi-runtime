@@ -172,7 +172,7 @@ class ArmsService:
 
                 # Add base velocities before sending TODO: (should replace in the future)
                 prepared_action = self._prepare_action(interpolated_action)
-                self.robot.send_action(interpolated_action)
+                self.robot.send_action(prepared_action)
                 self._current_state = interpolated_action.copy()
                 self._interpolation_frames -= 1
                 return
