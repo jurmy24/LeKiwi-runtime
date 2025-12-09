@@ -25,7 +25,7 @@ class ArmsService:
         )  # TODO: add cameras later if needed
         self.robot: LeKiwi | None = None
         self.recordings_dir = os.path.join(
-            os.path.dirname(__file__), "..", "..", "recordings", "arms"
+            os.path.dirname(__file__), "..", "..", "recordings", "arm"
         )
 
         # State management
