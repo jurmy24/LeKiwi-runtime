@@ -12,7 +12,9 @@ class WheelsService(ServiceBase):
         self.port = port
         self.robot_id = robot_id
         self.fps = fps
-        self.robot_config = LeKiwiConfig(port=port, id=robot_id)
+        self.robot_config = LeKiwiConfig(
+            port=port, id=robot_id, cameras={}
+        )  # TODO: add cameras later if needed
         self.robot: LeKiwi | None = None
         self.recordings_dir = os.path.join(
             os.path.dirname(__file__), "..", "..", "..", "recordings", "wheels"

@@ -142,3 +142,9 @@ play audio.wav \
   reverb 10 \
   gain -n -3
 ```
+
+For speaker test
+
+```
+speaker-test -Dhw:2,0 -c2 -twav
+```

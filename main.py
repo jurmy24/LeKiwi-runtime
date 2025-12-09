@@ -126,6 +126,8 @@ async def entrypoint(ctx: agents.JobContext):
         room=ctx.room,
         agent=agent,
         room_input_options=RoomInputOptions(
+            audio_enabled=True,
+            audio_sample_rate=16000,
             noise_cancellation=noise_cancellation.BVC(),
         ),
     )
