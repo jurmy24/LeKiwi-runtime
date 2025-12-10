@@ -2,6 +2,18 @@
 # Audio Setup Script for LeKiwi
 # Applies optimal mixer settings and restores ALSA state
 
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# 0. Copy .asoundrc configuration to home directory
+echo "Setting up ALSA configuration..."
+if [ -f "$SCRIPT_DIR/.asoundrc" ]; then
+    cp "$SCRIPT_DIR/.asoundrc" ~/.asoundrc
+    echo ".asoundrc copied to home directory"
+else
+    echo "Warning: .asoundrc file not found in $SCRIPT_DIR"
+fi
+
 # 1. Disable Noise Gate (fixes choppy audio)
 amixer -c 2 cset numid=35 0
 
@@ -29,4 +41,4 @@ amixer -c 2 cset numid=51 1  # Right Boost on
 # 7. Set Speaker Volume
 amixer -c 2 cset numid=13 115
 
-echo "Audio settings applied successfully."
+echo "Audio settings and ALSA configuration applied successfully."
