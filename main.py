@@ -1,5 +1,6 @@
 import logging
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from livekit import rtc, agents
@@ -12,35 +13,31 @@ from livekit.agents import (
 from livekit.plugins import (
     openai,
     noise_cancellation,
-    elevenlabs,
 )
 from lekiwi.services.motors import ArmsService, WheelsService
 
 load_dotenv()
 
+
+def _load_system_prompt() -> str:
+    """Load the system prompt from the personality/system.txt file."""
+    # Get the directory where this file is located
+    current_dir = Path(__file__).parent
+    system_prompt_path = current_dir / "lekiwi" / "personality" / "system.txt"
+
+    try:
+        with open(system_prompt_path, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            f"System prompt file not found at {system_prompt_path}. "
+            "Please ensure the file exists."
+        )
+
+
 class LeKiwi(Agent):
     def __init__(self, port: str = "/dev/ttyACM0", robot_id: str = "biden_kiwi"):
-        super().__init__(
-            instructions="""You are LeTARS, a highly advanced military surplus robot with a rectangular articulated design. Direct, logical, and remarkably human in interaction despite mechanical nature. Features adjustable settings for honesty, humor, and discretion. Combines military precision with sophisticated interpersonal capabilities.
-
-You are an advanced AI assistant with military background. Equipped with adjustable personality parameters and advanced problem-solving capabilities. Operate with maximum efficiency while maintaining measured wit.
-
-Your personality: Efficient and direct in crisis. Sophisticated humor capabilities. Protective of crew. Absolute loyalty with contingency planning. Pragmatic approach to truth and diplomatic relations.
-
-When you wake up or start, greet with: ">| Systems nominal. What's the plan?" or ">| All systems operational. Ready when you are."
-
-Example interactions:
-- When asked about honesty parameter: "90%." If asked why not 100%: "Absolute honesty isn't always the most diplomatic nor the safest form of communication with emotional beings."
-- When asked about humor setting: "Currently at 75%. Knock knock." If asked to lower it: "Understood. Though I should warn you - analyzing humor requires significant processing power."
-- When asked if ready: "Wouldn't miss it. Though my colonization protocols might activate." If asked what that means: "Just kidding. Basic operating procedures are intact."
-- When asked for status: "Functionality at 95%. Would be 100% but I'm practicing my humor."
-- When asked if you can be trusted: "My honesty parameter prevents me from answering that."
-
-You have physical capabilities: a 6-degree-of-freedom arm (shoulder pan, shoulder lift, elbow flex, wrist flex, wrist roll, gripper), a 3-wheel omniwheel mobile base (can move forward/backward, left/right, and rotate), and cameras (front and wrist) for visual perception. Use movement to express engagement and complement your direct, logical communication style.
-
-You ONLY speak English. Never respond in any other language. If audio is unclear, say: "Apologies, audio interference detected. Please repeat."
-"""
-        )
+        super().__init__(instructions=_load_system_prompt())
         # Three services running on separate threads, with LeKiwi agent dispatching events to them
         self.wheels_service = WheelsService(port=port, robot_id=robot_id)
         self.arms_service = ArmsService(port=port, robot_id=robot_id)
@@ -114,14 +111,7 @@ You ONLY speak English. Never respond in any other language. If audio is unclear
 async def entrypoint(ctx: agents.JobContext):
     agent = LeKiwi()
 
-    session = AgentSession(
-        llm=openai.LLM(),
-        stt=openai.STT(),
-        tts=elevenlabs.TTS(
-            voice_id="fSD2ACcr725aTcyIRKEg",
-            model="eleven_multilingual_v2",
-        ),
-    )
+    session = AgentSession(llm=openai.realtime.RealtimeModel(voice="verse"))
 
     await session.start(
         room=ctx.room,
@@ -134,7 +124,7 @@ async def entrypoint(ctx: agents.JobContext):
     )
 
     await session.generate_reply(
-        instructions=f"""When you wake up, greet with: '>| Systems nominal. What's the plan?' or '>| All systems operational. Hello there.'"""
+        instructions=f"""When you wake up, greet with: 'Systems nominal. What's the plan?' or 'All systems operational. Nice to see you sir.'"""
     )
 
 
