@@ -16,7 +16,12 @@ from livekit.plugins import (
 )
 from lekiwi.services import Priority
 from lekiwi.services.motors import ArmsService, WheelsService
-from lekiwi.services.pose_detection import PoseDetectionService
+from lekiwi.services.pose_detection import (
+    PoseDetectionService,
+    CameraStream,
+    PoseEstimator,
+    FallDetector,
+)
 
 load_dotenv()
 
@@ -41,15 +46,19 @@ class LeKiwi(Agent):
     def __init__(self, port: str = "/dev/ttyACM0", robot_id: str = "biden_kiwi"):
         super().__init__(instructions=_load_system_prompt())
         # Three services running on separate threads, with LeKiwi agent dispatching events to them
-        # self.wheels_service = WheelsService(port=port, robot_id=robot_id)
+        self.wheels_service = WheelsService(port=port, robot_id=robot_id)
         self.arms_service = ArmsService(port=port, robot_id=robot_id)
+        camera_stream = CameraStream()
+        pose_estimator = PoseEstimator()
+        fall_detector = FallDetector()
         self.pose_service = PoseDetectionService(
-            port=port,
-            robot_id=robot_id,
+            camera=camera_stream,
+            pose=pose_estimator,
+            detector=fall_detector,
             status_callback=self._handle_pose_status,  # callback method
         )
 
-        # self.wheels_service.start()
+        self.wheels_service.start()
         self.arms_service.start()
         self.pose_service.start()
 
@@ -74,7 +83,7 @@ class LeKiwi(Agent):
             # For simplicity, let's dispatch an action for now.
 
             # Example 2: Dispatch a HIGH-priority motor action (e.g., look up, check)
-            self.arms_service.dispatch("play", "wake_up", priority=Priority.HIGH)
+            self.wheels_service.dispatch("play", "spin")
             # log it
             print(f"LeKiwi: Person fallen detected, dispatching spin action")
 

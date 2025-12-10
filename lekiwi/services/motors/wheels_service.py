@@ -1,9 +1,10 @@
 import os
 import csv
 import time
-from typing import Any, List
+from typing import Any, List, Dict, Optional
 from ..base import ServiceBase
-from lerobot.robots.lekiwi import LeKiwiConfig, LeKiwi
+from lerobot.robots.lekiwi import LeKiwiConfig
+from lekiwi.robot import LeKiwi
 
 
 class WheelsService(ServiceBase):
@@ -17,13 +18,18 @@ class WheelsService(ServiceBase):
         )  # TODO: add cameras later if needed
         self.robot: LeKiwi | None = None
         self.recordings_dir = os.path.join(
-            os.path.dirname(__file__), "..", "..", "..", "recordings", "wheels"
+            os.path.dirname(__file__), "..", "..", "recordings", "wheels"
         )
 
     def start(self):
         super().start()
         self.robot = LeKiwi(self.robot_config)
         self.robot.connect(calibrate=False)
+        
+        # Suppress verbose DEBUG logs from lerobot library
+        import logging
+        logging.getLogger("lerobot.robots.lekiwi.lekiwi").setLevel(logging.INFO)
+        
         self.logger.info(f"Wheels service connected to {self.port}")
 
     def stop(self, timeout: float = 5.0):
@@ -37,6 +43,7 @@ class WheelsService(ServiceBase):
             self._handle_play(payload)
         else:
             self.logger.warning(f"Unknown event type: {event_type}")
+
 
     def _handle_play(self, recording_name: str):
         """Play a recording by name"""
@@ -58,16 +65,18 @@ class WheelsService(ServiceBase):
 
             self.logger.info(f"Playing {len(actions)} actions from {recording_name}")
 
-            for row in actions:
+            for idx, row in enumerate(actions):
                 t0 = time.perf_counter()
 
                 # Extract action data (exclude timestamp column)
-                action = {
+                base_action = {
                     key: float(value)
                     for key, value in row.items()
                     if key != "timestamp"
                 }
-                self.robot.send_action(action)
+                
+                # Send base action directly using the new method
+                self.robot.send_base_action(base_action)
 
                 # Use time.sleep instead of busy_wait to avoid blocking other threads
                 sleep_time = 1.0 / self.fps - (time.perf_counter() - t0)

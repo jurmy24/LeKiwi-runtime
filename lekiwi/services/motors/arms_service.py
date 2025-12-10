@@ -3,7 +3,8 @@ import csv
 import time
 import threading
 from typing import Any, List, Dict, Optional, Tuple
-from lerobot.robots.lekiwi import LeKiwiConfig, LeKiwi
+from lerobot.robots.lekiwi import LeKiwiConfig
+from lekiwi.robot import LeKiwi
 
 
 class ArmsService:
@@ -128,17 +129,6 @@ class ArmsService:
             self._interpolation_frames = 0
             self._interpolation_target = None
 
-    def _prepare_action(self, action: Dict[str, float]) -> Dict[str, float]:
-        """Prepare action for sending to robot by ensuring base velocities are included"""
-        # Add empty base velocities if not present (robot expects both arm and base actions)
-        prepared_action = action.copy()
-        if "x.vel" not in prepared_action:
-            prepared_action["x.vel"] = 0.0
-        if "y.vel" not in prepared_action:
-            prepared_action["y.vel"] = 0.0
-        if "theta.vel" not in prepared_action:
-            prepared_action["theta.vel"] = 0.0
-        return prepared_action
 
     def _continue_playback(self):
         """Continue current playback - called every frame"""
@@ -170,9 +160,8 @@ class ArmsService:
                         current_val + (target_val - current_val) * progress
                     )
 
-                # Add base velocities before sending TODO: (should replace in the future)
-                prepared_action = self._prepare_action(interpolated_action)
-                self.robot.send_action(prepared_action)
+                # Send arm action directly using the new method
+                self.robot.send_arm_action(interpolated_action)
                 self._current_state = interpolated_action.copy()
                 self._interpolation_frames -= 1
                 return
@@ -180,8 +169,8 @@ class ArmsService:
             # Play current frame
             if self._current_frame_index < len(self._current_actions):
                 action = self._current_actions[self._current_frame_index]
-                prepared_action = self._prepare_action(action)
-                self.robot.send_action(prepared_action)
+                # Send arm action directly using the new method
+                self.robot.send_arm_action(action)
                 self._current_state = action.copy()
                 self._current_frame_index += 1
             else:
