@@ -14,7 +14,9 @@ from livekit.plugins import (
     openai,
     noise_cancellation,
 )
+from lekiwi.services import Priority
 from lekiwi.services.motors import ArmsService, WheelsService
+from lekiwi.services.pose_detection import PoseDetectionService
 
 load_dotenv()
 
@@ -39,14 +41,46 @@ class LeKiwi(Agent):
     def __init__(self, port: str = "/dev/ttyACM0", robot_id: str = "biden_kiwi"):
         super().__init__(instructions=_load_system_prompt())
         # Three services running on separate threads, with LeKiwi agent dispatching events to them
-        self.wheels_service = WheelsService(port=port, robot_id=robot_id)
+        # self.wheels_service = WheelsService(port=port, robot_id=robot_id)
         self.arms_service = ArmsService(port=port, robot_id=robot_id)
+        self.pose_service = PoseDetectionService(
+            port=port,
+            robot_id=robot_id,
+            status_callback=self._handle_pose_status,  # callback method
+        )
 
-        self.wheels_service.start()
+        # self.wheels_service.start()
         self.arms_service.start()
+        self.pose_service.start()
 
         # Wake up
         self.arms_service.dispatch("play", "wake_up")
+
+    def _handle_pose_status(self, status_type: str, details: dict):
+        """
+        Callback method to receive status updates from the PoseDetectionService.
+        This runs in the context of the service's worker thread, but is called by it.
+        """
+        print(
+            f"LeKiwi: Received pose status update - Type: {status_type}, Details: {details}"
+        )
+
+        if status_type == "PERSON_FALLEN":
+            # The main thread (LiveKit orchestrator) decides what to do
+            # In an Agent, this often means generating a reply or dispatching a motor action.
+
+            # Example 1: Use the LLM to generate an urgent reply
+            # You would need a mechanism to break into the current LLM flow.
+            # For simplicity, let's dispatch an action for now.
+
+            # Example 2: Dispatch a HIGH-priority motor action (e.g., look up, check)
+            self.arms_service.dispatch("play", "wake_up", priority=Priority.HIGH)
+            # log it
+            print(f"LeKiwi: Person fallen detected, dispatching spin action")
+
+            # Example 3: Log the event for the main LLM loop to pick up (complex, but robust)
+            # You might set a flag or put an event in a queue monitored by the agent's reply loop.
+            pass
 
     @function_tool
     async def get_available_recordings(self) -> str:
