@@ -3,6 +3,7 @@
 
 import cv2
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 
 def find_cameras(max_test=10):
@@ -56,8 +57,22 @@ if __name__ == "__main__":
         else:
             print(f"  ✗ Camera {cam_idx}: Failed to capture")
 
-    # Display all frames
+    # Save and display all frames
     if frames:
+        # Create results directory if it doesn't exist
+        results_dir = Path(__file__).parent / "results"
+        results_dir.mkdir(exist_ok=True)
+        
+        # Save images
+        print("\nSaving images...")
+        for i, (cam_idx, frame) in enumerate(frames.items(), start=1):
+            filename = results_dir / f"camera{i}.png"
+            # Convert RGB back to BGR for OpenCV save
+            frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            cv2.imwrite(str(filename), frame_bgr)
+            print(f"  ✓ Saved: {filename}")
+        
+        # Display all frames
         num_cameras = len(frames)
         fig, axes = plt.subplots(1, num_cameras, figsize=(6 * num_cameras, 6))
         if num_cameras == 1:
