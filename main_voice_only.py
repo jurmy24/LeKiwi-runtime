@@ -11,7 +11,9 @@ from livekit.agents import (
     function_tool,
 )
 from livekit.plugins import (
+    cartesia,
     openai,
+    silero,
     noise_cancellation,
 )
 
@@ -52,7 +54,23 @@ class LeKiwiVoiceTest(Agent):
 async def entrypoint(ctx: agents.JobContext):
     agent = LeKiwiVoiceTest()
 
-    session = AgentSession(llm=openai.realtime.RealtimeModel(voice="verse"))
+    session = AgentSession(
+        vad=silero.VAD.load(
+            min_speech_duration=0.5,      # Require 500ms of continuous speech
+            min_silence_duration=1.0,     # Require 1 second of silence to detect turn end
+            activation_threshold=0.8,     # Very high threshold - ignore most sounds
+        ),  # Voice Activity Detection - tuned to prevent interruption
+        stt=cartesia.STT(),      # Or deepgram.STT() for faster/cheaper option
+        llm=openai.LLM(model="gpt-4o-mini"),  # Fast streaming LLM
+        tts=cartesia.TTS(
+            model="sonic-3",
+            voice="87748186-23bb-4158-a1eb-332911b0b708",
+        ),
+        # Disable interruption - bot must finish speaking before listening again
+        preemptive_generation=False,      # Don't allow overlapping speech
+        resume_false_interruption=False,  # Don't resume after interruption attempts
+        allow_interruptions=False,        # Explicitly disable interruptions
+    )
 
     await session.start(
         room=ctx.room,

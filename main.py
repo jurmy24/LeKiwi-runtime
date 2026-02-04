@@ -17,12 +17,6 @@ from livekit.plugins import (
 )
 from lekiwi.services import Priority
 from lekiwi.services.motors import ArmsService, WheelsService
-from lekiwi.services.pose_detection import (
-    PoseDetectionService,
-    CameraStream,
-    PoseEstimator,
-    FallDetector,
-)
 import zmq
 
 load_dotenv()
@@ -57,18 +51,9 @@ class LeKiwi(Agent):
         self.wheels_service = WheelsService(port=port, robot_id=robot_id)
         self.arms_service = ArmsService(port=port, robot_id=robot_id)
         camera_stream = CameraStream()
-        pose_estimator = PoseEstimator()
-        fall_detector = FallDetector()
-        self.pose_service = PoseDetectionService(
-            camera=camera_stream,
-            pose=pose_estimator,
-            detector=fall_detector,
-            status_callback=self._handle_pose_status,  # callback method
-        )
 
         self.wheels_service.start()
         self.arms_service.start()
-        self.pose_service.start()
 
         # Optional data streaming (to anyone listening)
         # TODO: This should probably exist in the pose detection worker thread instead
@@ -89,43 +74,6 @@ class LeKiwi(Agent):
         if self.zmq_pub:
             message = {"type": data_type, "timestamp": time.time(), "data": data}
             self.zmq_pub.send_json(message)
-
-    def _handle_pose_status(self, status_type: str, details: dict):
-        """
-        Callback method to receive status updates from the PoseDetectionService.
-        This runs in the context of the service's worker thread, but is called by it.
-        """
-        print(
-            f"LeKiwi: Received pose status update - Type: {status_type}, Details: {details}"
-        )
-
-        # Stream pose data if enabled
-        if self.stream_data:
-            self._publish_sensor_data(
-                "pose",
-                {
-                    "status": status_type,
-                    "score": details.get("score", 0.0),
-                    "ratio": details.get("ratio", 0.0),
-                },
-            )
-
-        if status_type == "PERSON_FALLEN":
-            # The main thread (LiveKit orchestrator) decides what to do
-            # In an Agent, this often means generating a reply or dispatching a motor action.
-
-            # Example 1: Use the LLM to generate an urgent reply
-            # You would need a mechanism to break into the current LLM flow.
-            # For simplicity, let's dispatch an action for now.
-
-            # Example 2: Dispatch a HIGH-priority motor action (e.g., look up, check)
-            self.wheels_service.dispatch("play", "spin")
-            # log it
-            print(f"LeKiwi: Person fallen detected, dispatching spin action")
-
-            # Example 3: Log the event for the main LLM loop to pick up (complex, but robust)
-            # You might set a flag or put an event in a queue monitored by the agent's reply loop.
-            pass
 
     @function_tool
     async def get_available_recordings(self) -> str:

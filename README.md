@@ -81,3 +81,11 @@ For speaker test
 ```
 speaker-test -Dhw:2,0 -c2 -twav
 ```
+
+### Troubleshooting
+
+If you encounter a PortAudio error, run the audio setup script:
+
+```bash
+./setup/setup_audio.sh
+```
