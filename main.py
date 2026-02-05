@@ -11,7 +11,10 @@ from livekit.agents import (
     RoomInputOptions,
     AgentSession,
     function_tool,
+    ChatContext,
+    ChatMessage,
 )
+from livekit.agents.llm import ImageContent
 from livekit.plugins import (
     cartesia,
     openai,
@@ -20,6 +23,8 @@ from livekit.plugins import (
 )
 from lekiwi.services import Priority
 from lekiwi.services.motors import ArmsService, WheelsService
+from lekiwi.services.cameras import CameraService, CameraConfig
+import base64
 import zmq
 
 load_dotenv()
@@ -92,32 +97,30 @@ class LeKiwi(Agent):
         stream_port: int = 5556,
     ):
         super().__init__(instructions=_load_system_prompt())
-        # Three services running on separate threads, with LeKiwi agent dispatching events to them
         self.wheels_service = WheelsService(port=port, robot_id=robot_id)
         self.arms_service = ArmsService(port=port, robot_id=robot_id)
+        
+        # Camera configuration
+        camera_config = {
+            "front": CameraConfig(device_id=0, width=640, height=480),
+        }
+        self.camera_service = CameraService(camera_config)
 
         self.wheels_service.start()
         self.arms_service.start()
-
-        # Optional data streaming (to anyone listening)
-        # TODO: This should probably exist in the pose detection worker thread instead
-        self.stream_data = stream_data
-        self.zmq_pub = None
-        if stream_data:
-            context = zmq.Context()
-            self.zmq_pub = context.socket(zmq.PUB)
-            self.zmq_pub.setsockopt(zmq.CONFLATE, 1)
-            self.zmq_pub.bind(f"tcp://*:{stream_port}")
-            print(f"ZMQ Publisher on LeKiwi bound to port {stream_port}")
+        self.camera_service.start()
 
         # Wake up
         self.arms_service.dispatch("play", "wake_up")
+        
+    async def on_user_turn_completed(self, turn_ctx: ChatContext, new_message: ChatMessage) -> None:
+        """Overwrite on_user_turn_completed and inject a camera image into a user message before the VLM processes it."""
+        image_bytes = self.camera_service.get_image("front")
 
-    def _publish_sensor_data(self, data_type: str, data: dict):
-        """Publish sensor data to ZMQ stream if enabled."""
-        if self.zmq_pub:
-            message = {"type": data_type, "timestamp": time.time(), "data": data}
-            self.zmq_pub.send_json(message)
+        if image_bytes:
+            # Convert JPEG bytes to PIL Image
+            image_content = ImageContent(image=f"data:image/jpeg;base64,{base64.b64encode(image_bytes).decode('utf-8')}")
+            new_message.content.append(image_content)
 
     @function_tool
     async def get_available_recordings(self) -> str:

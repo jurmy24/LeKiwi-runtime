@@ -21,9 +21,10 @@ class ArmsService:
         self.fps = fps
         self.duration = duration
         self.idle_recording = idle_recording
+        # Leave cameras empty, I handle them in the CameraService
         self.robot_config = LeKiwiConfig(
             port=port, id=robot_id, cameras={}
-        )  # TODO: add cameras later if needed
+        )  
         self.robot: LeKiwi | None = None
         self.recordings_dir = os.path.join(
             os.path.dirname(__file__), "..", "..", "recordings", "arm"
@@ -53,9 +54,6 @@ class ArmsService:
         self._running.set()
         self._event_thread = threading.Thread(target=self._event_loop, daemon=True)
         self._event_thread.start()
-
-        # Initialize with idle recording via self dispatch
-        self.dispatch("play", self.idle_recording)
 
     def stop(self, timeout: float = 5.0):
         # Stop event processing

@@ -3,7 +3,8 @@ import csv
 import time
 from typing import Any, List, Dict
 from ..base import ServiceBase
-from lerobot.robots.lekiwi import LeKiwiConfig, LeKiwi
+from lerobot.robots.lekiwi import LeKiwiConfig
+from lekiwi.robot import LeKiwi
 
 
 class WheelsService(ServiceBase):
@@ -12,9 +13,10 @@ class WheelsService(ServiceBase):
         self.port = port
         self.robot_id = robot_id
         self.fps = fps
+        # Leave cameras empty, I handle them in the CameraService
         self.robot_config = LeKiwiConfig(
             port=port, id=robot_id, cameras={}
-        )  # TODO: add cameras later if needed
+        ) 
         self.robot: LeKiwi | None = None
         self.recordings_dir = os.path.join(
             os.path.dirname(__file__), "..", "..", "recordings", "wheels"
