@@ -1,10 +1,9 @@
 import os
 import csv
 import time
-from typing import Any, List, Dict, Optional
+from typing import Any, List, Dict
 from ..base import ServiceBase
-from lerobot.robots.lekiwi import LeKiwiConfig
-from lekiwi.robot import LeKiwi
+from lerobot.robots.lekiwi import LeKiwiConfig, LeKiwi
 
 
 class WheelsService(ServiceBase):
@@ -44,7 +43,6 @@ class WheelsService(ServiceBase):
         else:
             self.logger.warning(f"Unknown event type: {event_type}")
 
-
     def _handle_play(self, recording_name: str):
         """Play a recording by name"""
         if not self.robot:
@@ -65,17 +63,17 @@ class WheelsService(ServiceBase):
 
             self.logger.info(f"Playing {len(actions)} actions from {recording_name}")
 
-            for idx, row in enumerate(actions):
+            for row in actions:
                 t0 = time.perf_counter()
 
-                # Extract action data (exclude timestamp column)
+                # Extract wheel velocity data (exclude timestamp column)
                 base_action = {
                     key: float(value)
                     for key, value in row.items()
                     if key != "timestamp"
                 }
                 
-                # Send base action directly using the new method
+                # Send only base velocities using dedicated method
                 self.robot.send_base_action(base_action)
 
                 # Use time.sleep instead of busy_wait to avoid blocking other threads

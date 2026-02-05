@@ -52,21 +52,24 @@ class LeKiwi(Robot):
         super().__init__(config)
         self.config = config
         norm_mode_body = MotorNormMode.DEGREES if config.use_degrees else MotorNormMode.RANGE_M100_100
+
+        motors = {
+            # arm
+            "arm_shoulder_pan": Motor(1, "sts3215", norm_mode_body),
+            "arm_shoulder_lift": Motor(2, "sts3215", norm_mode_body),
+            "arm_elbow_flex": Motor(3, "sts3215", norm_mode_body),
+            "arm_wrist_flex": Motor(4, "sts3215", norm_mode_body),
+            "arm_wrist_roll": Motor(5, "sts3215", norm_mode_body),
+            "arm_gripper": Motor(6, "sts3215", MotorNormMode.RANGE_0_100),
+            # base
+            "base_left_wheel": Motor(7, "sts3215", MotorNormMode.RANGE_M100_100),
+            "base_back_wheel": Motor(8, "sts3215", MotorNormMode.RANGE_M100_100),
+            "base_right_wheel": Motor(9, "sts3215", MotorNormMode.RANGE_M100_100),
+        }
+
         self.bus = FeetechMotorsBus(
             port=self.config.port,
-            motors={
-                # arm
-                "arm_shoulder_pan": Motor(1, "sts3215", norm_mode_body),
-                "arm_shoulder_lift": Motor(2, "sts3215", norm_mode_body),
-                "arm_elbow_flex": Motor(3, "sts3215", norm_mode_body),
-                "arm_wrist_flex": Motor(4, "sts3215", norm_mode_body),
-                "arm_wrist_roll": Motor(5, "sts3215", norm_mode_body),
-                "arm_gripper": Motor(6, "sts3215", MotorNormMode.RANGE_0_100),
-                # base
-                "base_left_wheel": Motor(7, "sts3215", MotorNormMode.RANGE_M100_100),
-                "base_back_wheel": Motor(8, "sts3215", MotorNormMode.RANGE_M100_100),
-                "base_right_wheel": Motor(9, "sts3215", MotorNormMode.RANGE_M100_100),
-            },
+            motors=motors,
             calibration=self.calibration,
         )
         self.arm_motors = [motor for motor in self.bus.motors if motor.startswith("arm")]
@@ -76,7 +79,7 @@ class LeKiwi(Robot):
     @property
     def _state_ft(self) -> dict[str, type]:
         return dict.fromkeys(
-            (
+            [
                 "arm_shoulder_pan.pos",
                 "arm_shoulder_lift.pos",
                 "arm_elbow_flex.pos",
@@ -86,7 +89,7 @@ class LeKiwi(Robot):
                 "x.vel",
                 "y.vel",
                 "theta.vel",
-            ),
+            ],
             float,
         )
 
@@ -345,17 +348,14 @@ class LeKiwi(Robot):
         # Read actuators position for arm and vel for base
         start = time.perf_counter()
         arm_pos = self.bus.sync_read("Present_Position", self.arm_motors)
+        obs_dict = {f"{k}.pos": v for k, v in arm_pos.items()}
         base_wheel_vel = self.bus.sync_read("Present_Velocity", self.base_motors)
-
         base_vel = self._wheel_raw_to_body(
             base_wheel_vel["base_left_wheel"],
             base_wheel_vel["base_back_wheel"],
             base_wheel_vel["base_right_wheel"],
         )
-
-        arm_state = {f"{k}.pos": v for k, v in arm_pos.items()}
-
-        obs_dict = {**arm_state, **base_vel}
+        obs_dict.update(base_vel)
 
         dt_ms = (time.perf_counter() - start) * 1e3
         logger.debug(f"{self} read state: {dt_ms:.1f}ms")
@@ -409,23 +409,23 @@ class LeKiwi(Robot):
     
     def send_arm_action(self, arm_action: dict[str, float]) -> dict[str, float]:
         """Send position commands to arm motors only.
-        
+
         Args:
             arm_action: Dict with keys ending in .pos (e.g., "arm_shoulder_pan.pos")
         """
         if not self.is_connected:
             raise DeviceNotConnectedError(f"{self} is not connected.")
-        
+
         # Safety clamping (if enabled)
         if self.config.max_relative_target is not None:
             present_pos = self.bus.sync_read("Present_Position", self.arm_motors)
             goal_present_pos = {key: (g_pos, present_pos[key]) for key, g_pos in arm_action.items()}
             arm_action = ensure_safe_goal_position(goal_present_pos, self.config.max_relative_target)
-        
+
         # Send to motors
         arm_goal_pos_raw = {k.replace(".pos", ""): v for k, v in arm_action.items()}
         self.bus.sync_write("Goal_Position", arm_goal_pos_raw)
-        
+
         return arm_action
 
     def send_base_action(self, base_action: dict[str, float]) -> dict[str, float]:

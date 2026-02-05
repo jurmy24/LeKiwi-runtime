@@ -94,10 +94,10 @@ class LeKiwi(Agent):
         super().__init__(instructions=_load_system_prompt())
         # Three services running on separate threads, with LeKiwi agent dispatching events to them
         self.wheels_service = WheelsService(port=port, robot_id=robot_id)
-        # self.arms_service = ArmsService(port=port, robot_id=robot_id)
+        self.arms_service = ArmsService(port=port, robot_id=robot_id)
 
         self.wheels_service.start()
-        # self.arms_service.start()
+        self.arms_service.start()
 
         # Optional data streaming (to anyone listening)
         # TODO: This should probably exist in the pose detection worker thread instead
@@ -111,7 +111,7 @@ class LeKiwi(Agent):
             print(f"ZMQ Publisher on LeKiwi bound to port {stream_port}")
 
         # Wake up
-        # self.arms_service.dispatch("play", "wake_up")
+        self.arms_service.dispatch("play", "wake_up")
 
     def _publish_sensor_data(self, data_type: str, data: dict):
         """Publish sensor data to ZMQ stream if enabled."""
@@ -132,17 +132,23 @@ class LeKiwi(Agent):
             List of available physical expression recordings you can perform.
         """
         print("LeKiwi: get_available_recordings function called")
-        if not hasattr(self, 'arms_service') or self.arms_service is None:
-            return "Physical movement system is currently disabled (robot not connected)."
         try:
-            recordings = self.arms_service.get_available_recordings()
+            all_recordings = []
+            
+            if hasattr(self, 'arms_service') and self.arms_service is not None:
+                arm_recordings = self.arms_service.get_available_recordings()
+                if arm_recordings:
+                    all_recordings.append(f"Arm: {', '.join(arm_recordings)}")
+            
+            if hasattr(self, 'wheels_service') and self.wheels_service is not None:
+                wheel_recordings = self.wheels_service.get_available_recordings()
+                if wheel_recordings:
+                    all_recordings.append(f"Wheels: {', '.join(wheel_recordings)}")
 
-            if recordings:
-                result = f"Available recordings: {', '.join(recordings)}"
-                return result
+            if all_recordings:
+                return "Available recordings - " + "; ".join(all_recordings)
             else:
-                result = "No recordings found."
-                return result
+                return "No recordings found."
         except Exception as e:
             result = f"Error getting recordings: {str(e)}"
             return result
@@ -162,13 +168,21 @@ class LeKiwi(Agent):
         print(
             f"LeKiwi: play_recording function called with recording_name: {recording_name}"
         )
-        if not hasattr(self, 'wheels_service') or self.wheels_service is None:
-            return "Physical movement system is currently disabled (robot not connected)."
         try:
-            # Send play event to animation service
-            self.wheels_service.dispatch("play", recording_name)
-            result = f"Started playing recording: {recording_name}"
-            return result
+            # Check which service has this recording and dispatch accordingly
+            if hasattr(self, 'arms_service') and self.arms_service is not None:
+                arm_recordings = self.arms_service.get_available_recordings()
+                if recording_name in arm_recordings:
+                    self.arms_service.dispatch("play", recording_name)
+                    return f"Started playing arm recording: {recording_name}"
+            
+            if hasattr(self, 'wheels_service') and self.wheels_service is not None:
+                wheel_recordings = self.wheels_service.get_available_recordings()
+                if recording_name in wheel_recordings:
+                    self.wheels_service.dispatch("play", recording_name)
+                    return f"Started playing wheels recording: {recording_name}"
+            
+            return f"Recording '{recording_name}' not found in arms or wheels recordings."
         except Exception as e:
             result = f"Error playing recording {recording_name}: {str(e)}"
             return result
